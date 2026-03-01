@@ -368,6 +368,14 @@ def render_sidebar():
                                        help="Fast horizontal smear with vertical roll")
         shader_holo_foil = st.slider("Holographic Foil", 0, 10, 0, key="sb_shader_holo_foil",
                                       help="Rainbow interference patterns shifting with angle")
+        shader_kaleido = st.slider("Kaleido Grid", 0, 10, 0, key="sb_shader_kaleido",
+                                    help="Mirror-tiled portal/panel kaleidoscope layout")
+        shader_stripe = st.slider("Stripe Shift", 0, 10, 0, key="sb_shader_stripe",
+                                   help="Horizontal band displacement with per-band X shift")
+        shader_block = st.slider("Block Smear", 0, 10, 0, key="sb_shader_block",
+                                  help="Codec-broken block swap/smear geometry glitch")
+        shader_rainbow = st.slider("Palette Rainbow", 0, 10, 0, key="sb_shader_rainbow",
+                                    help="Posterize + luminance-mapped rainbow color banding")
 
     with st.sidebar.expander("Transitions (A↔B boundary)", expanded=False):
         trans_band_wipe = st.slider("Band Wipe", 0, 10, 0, key="sb_trans_band",
@@ -471,6 +479,10 @@ def render_sidebar():
         "shader_data_corruption_intensity": shader_data_corrupt,
         "shader_vhs_rewind_intensity": shader_vhs_rewind,
         "shader_holographic_foil_intensity": shader_holo_foil,
+        "shader_kaleido_grid_intensity": shader_kaleido,
+        "shader_stripe_shift_intensity": shader_stripe,
+        "shader_block_smear_intensity": shader_block,
+        "shader_palette_rainbow_intensity": shader_rainbow,
         "transition_band_wipe": trans_band_wipe,
         "transition_diagonal_rip": trans_diagonal_rip,
         "transition_slit_scan_swap": trans_slit_scan,

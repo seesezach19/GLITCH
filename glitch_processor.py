@@ -124,6 +124,10 @@ class GlitchParams:
     shader_data_corruption_intensity: int = 0
     shader_vhs_rewind_intensity: int = 0
     shader_holographic_foil_intensity: int = 0
+    shader_kaleido_grid_intensity: int = 0
+    shader_stripe_shift_intensity: int = 0
+    shader_block_smear_intensity: int = 0
+    shader_palette_rainbow_intensity: int = 0
 
 
 # Event scheduler: keyframed glitch moments (subtle -> event -> decay)
@@ -241,6 +245,10 @@ def vary_params_for_frame(params: GlitchParams, frame_idx: int, total_frames: in
         shader_data_corruption_intensity=scale(params.shader_data_corruption_intensity),
         shader_vhs_rewind_intensity=scale(params.shader_vhs_rewind_intensity),
         shader_holographic_foil_intensity=scale(params.shader_holographic_foil_intensity),
+        shader_kaleido_grid_intensity=scale(params.shader_kaleido_grid_intensity),
+        shader_stripe_shift_intensity=scale(params.shader_stripe_shift_intensity),
+        shader_block_smear_intensity=scale(params.shader_block_smear_intensity),
+        shader_palette_rainbow_intensity=scale(params.shader_palette_rainbow_intensity),
     )
 
 
@@ -1791,6 +1799,10 @@ def _all_effects_disabled(params: GlitchParams) -> bool:
         params.shader_data_corruption_intensity,
         params.shader_vhs_rewind_intensity,
         params.shader_holographic_foil_intensity,
+        params.shader_kaleido_grid_intensity,
+        params.shader_stripe_shift_intensity,
+        params.shader_block_smear_intensity,
+        params.shader_palette_rainbow_intensity,
         params.displacement_map,
         params.color_halftone,
         params.temporal_echo,
@@ -1837,6 +1849,10 @@ def process_frame(frame: np.ndarray, mask: np.ndarray, params: GlitchParams,
         params.shader_data_corruption_intensity == 0 and
         params.shader_vhs_rewind_intensity == 0 and
         params.shader_holographic_foil_intensity == 0 and
+        params.shader_kaleido_grid_intensity == 0 and
+        params.shader_stripe_shift_intensity == 0 and
+        params.shader_block_smear_intensity == 0 and
+        params.shader_palette_rainbow_intensity == 0 and
         params.displacement_map == 0 and
         params.color_halftone == 0 and
         params.temporal_echo == 0 and

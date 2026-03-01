@@ -174,6 +174,10 @@ def _effects_disabled(params: GlitchParams) -> bool:
         and params.shader_data_corruption_intensity == 0
         and params.shader_vhs_rewind_intensity == 0
         and params.shader_holographic_foil_intensity == 0
+        and params.shader_kaleido_grid_intensity == 0
+        and params.shader_stripe_shift_intensity == 0
+        and params.shader_block_smear_intensity == 0
+        and params.shader_palette_rainbow_intensity == 0
         and params.displacement_map == 0
         and params.color_halftone == 0
         and params.temporal_echo == 0
