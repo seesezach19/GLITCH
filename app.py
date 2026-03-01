@@ -376,6 +376,8 @@ def render_sidebar():
                                   help="Codec-broken block swap/smear geometry glitch")
         shader_rainbow = st.slider("Palette Rainbow", 0, 10, 0, key="sb_shader_rainbow",
                                     help="Posterize + luminance-mapped rainbow color banding")
+        shader_dot_matrix = st.slider("Dot Matrix", 0, 10, 0, key="sb_shader_dot_matrix",
+                                       help="LED panel / pointillist pulsing dot grid")
 
     with st.sidebar.expander("Transitions (A↔B boundary)", expanded=False):
         trans_band_wipe = st.slider("Band Wipe", 0, 10, 0, key="sb_trans_band",
@@ -483,6 +485,7 @@ def render_sidebar():
         "shader_stripe_shift_intensity": shader_stripe,
         "shader_block_smear_intensity": shader_block,
         "shader_palette_rainbow_intensity": shader_rainbow,
+        "shader_dot_matrix_intensity": shader_dot_matrix,
         "transition_band_wipe": trans_band_wipe,
         "transition_diagonal_rip": trans_diagonal_rip,
         "transition_slit_scan_swap": trans_slit_scan,

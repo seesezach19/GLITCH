@@ -128,6 +128,7 @@ class GlitchParams:
     shader_stripe_shift_intensity: int = 0
     shader_block_smear_intensity: int = 0
     shader_palette_rainbow_intensity: int = 0
+    shader_dot_matrix_intensity: int = 0
 
 
 # Event scheduler: keyframed glitch moments (subtle -> event -> decay)
@@ -249,6 +250,7 @@ def vary_params_for_frame(params: GlitchParams, frame_idx: int, total_frames: in
         shader_stripe_shift_intensity=scale(params.shader_stripe_shift_intensity),
         shader_block_smear_intensity=scale(params.shader_block_smear_intensity),
         shader_palette_rainbow_intensity=scale(params.shader_palette_rainbow_intensity),
+        shader_dot_matrix_intensity=scale(params.shader_dot_matrix_intensity),
     )
 
 
@@ -1803,6 +1805,7 @@ def _all_effects_disabled(params: GlitchParams) -> bool:
         params.shader_stripe_shift_intensity,
         params.shader_block_smear_intensity,
         params.shader_palette_rainbow_intensity,
+        params.shader_dot_matrix_intensity,
         params.displacement_map,
         params.color_halftone,
         params.temporal_echo,
@@ -1853,6 +1856,7 @@ def process_frame(frame: np.ndarray, mask: np.ndarray, params: GlitchParams,
         params.shader_stripe_shift_intensity == 0 and
         params.shader_block_smear_intensity == 0 and
         params.shader_palette_rainbow_intensity == 0 and
+        params.shader_dot_matrix_intensity == 0 and
         params.displacement_map == 0 and
         params.color_halftone == 0 and
         params.temporal_echo == 0 and
