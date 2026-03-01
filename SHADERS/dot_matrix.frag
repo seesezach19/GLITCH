@@ -69,21 +69,15 @@ void main() {
     float cell_noise = snoise(cell_id * 3.7 + t * 0.3) * 0.5 + 0.5;
     float pulse = 0.85 + 0.15 * sin(t * 2.5 + cell_noise * 6.28);
 
-    float base_radius = 0.35 + luma * 0.15;
-    float radius = base_radius * pulse;
+    float half_size = (0.35 + luma * 0.15) * pulse;
+    vec2 abs_local = abs(local);
+    float pixel_edge = step(abs_local.x, half_size) * step(abs_local.y, half_size);
 
-    float dist = length(local);
-
-    float dot_edge = smoothstep(radius, radius - 0.08, dist);
-
-    float glow_radius = radius + 0.12 * eff;
-    float glow = smoothstep(glow_radius, radius, dist) * 0.3 * eff;
-
+    float gap = 1.0 - pixel_edge;
     vec3 bg = vec3(0.02, 0.02, 0.03);
-    vec3 dot_col = sample_col * dot_edge;
-    vec3 glow_col = sample_col * glow;
+    vec3 pixel_col = sample_col * pixel_edge;
 
-    vec3 result = bg + dot_col + glow_col;
+    vec3 result = bg * gap + pixel_col;
 
     vec4 feedback = texture(u_feedback, v_uv);
     result = mix(result, feedback.rgb, eff * 0.08);
