@@ -1,0 +1,7 @@
+# Liche - Dependencies
+streamlit>=1.28.0
+Pillow>=10.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+moviepy>=1.0.3
+moderngl>=5.8.0
