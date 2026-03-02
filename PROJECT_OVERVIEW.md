@@ -11,8 +11,9 @@ NFT/
 ├── app.py                 # Streamlit UI (main entry: python -m streamlit run app.py)
 ├── batch_gif.py          # CLI batch generator (python batch_gif.py -n 100 -o output/batch)
 ├── series_generator.py   # Layer composition (background + base + eyes + accessories)
-├── glitch_processor.py   # Core: 40+ glitch effects, mask-based, OpenCV/NumPy
-├── gif_processor.py      # Images → GIF pipeline, transitions, palette optimization
+├── glitch_processor.py   # Core: 40+ CPU effects + GlitchParams (100+ fields)
+├── shader_processor.py   # OpenGL/GLSL shader chain (moderngl), auto-discovers shader_*_intensity
+├── gif_processor.py      # Images → GIF pipeline, transitions, WebP/APNG export
 ├── transition_effects.py  # 12 A↔B boundary transitions (band wipe, slit-scan, etc.)
 ├── gif_overlay_utils.py   # Overlay GIF onto base image using mask (e.g. lich holding screen)
 ├── glitch_presets.py     # Rarity weights (55% common, 25% uncommon, etc.)
@@ -25,6 +26,11 @@ NFT/
 │   ├── EYES/
 │   ├── ALT_BASES/        # Color variants (CYAN/, RED/, etc.)
 │   └── ACCESSORIES/      # CIGARETTE/, HATS/, SUNGLASSES/, etc.
+├── SHADERS/              # GLSL fragment shaders (.frag)
+│   ├── kaleido_grid.frag, stripe_shift.frag, block_smear.frag, palette_rainbow.frag
+│   ├── dot_matrix.frag, pixel_rain.frag, liquid_metal.frag, data_corruption.frag
+│   ├── vhs_rewind.frag, holographic_foil.frag, crystalline_frost.frag, void_tendrils.frag
+│   └── ... (22 total)
 ├── gif_overlay/          # Overlay feature assets
 │   ├── LICHE_VOID_SQUARE.jpg   # Base image (lich holding black square)
 │   ├── VOID_SQUARE_MASK.png    # White = where GIF plays
@@ -60,33 +66,38 @@ generate_pair(accessory_chance, eyes_chance, seed)
 process_images_to_gif(image_paths, output_path, params, ...)
   → _load_images()         # Resize to match first image
   → For each image i, for each frame k in static_frames_per_image:
-       mask = auto-detect OR file OR zeros (bypass_mask)
+       mask = mask_path OR auto-detect OR zeros (bypass_mask)
        fp = vary_params_for_frame(params, idx)  # Per-frame intensity scaling
        if is_boundary (first frame of new image): apply transition (band_wipe, etc.)
        out = process_frame(frame, mask, fp, idx, prev)
-  → _save_gif_under_size() # Global palette, color reduction to hit target bytes
+  → _save_gif_under_size() # Global palette, smarter frame decimation, color reduction
+  → Optional: save_as_webp(), save_as_apng() for higher-quality animated export
 ```
 
 - **Default:** 2 images (base + alt), 6 frames each = 12-frame GIF, 300ms per image
 - **Boundary:** When switching from image A to B, one of 12 transition effects can run
-- **Mask:** 255 = protected (subject), 0 = glitch zone. Auto-detect uses edge detection + background subtraction
+- **Mask:** 255 = protected (subject), 0 = glitch zone. `mask_path` = custom upload; else auto-detect (edge detection + background subtraction)
+- **Output:** RESOLUTION_OPTIONS (256–1024px), Floyd-Steinberg dithering option, WebP/APNG download
 
-### 2.3 Glitch Processing (glitch_processor.py)
+### 2.3 Glitch Processing (glitch_processor.py + shader_processor.py)
 
 ```
 process_frame(frame, mask, params, frame_idx, prev_frame)
   → make_soft_mask(mask, mask_soft_edge)
-  → Apply effects in order (only where mask allows):
-       - Geometry: frame_drift, melting, block_tear, flow_warp, voronoi_shatter, etc.
-       - Color: rgb_shift, chromatic_aberration, bitcrush, chroma_dropout
+  → Apply CPU effects in order (only where mask allows):
+       - Geometry: frame_drift, melting, block_tear, flow_warp, voronoi_shatter, displacement_map
+       - Color: rgb_shift, chromatic_aberration, bitcrush, chroma_dropout, color_halftone
        - Overlays: scanlines, film_grain, tv_static, ordered_dither
+       - Temporal: ghost_trail, temporal_echo, echo_crown, frame_drop
        - Foreground: subject_invert, subject_particles, edge_pulse
+  → shader_processor.apply_shaders_chain() — GLSL effects (kaleido_grid, stripe_shift, dot_matrix, etc.)
   → Composite: mask_soft * subject + (1-mask_soft) * background
 ```
 
-- **GlitchParams:** Dataclass with 80+ fields. Each effect has intensity 0–10.
+- **GlitchParams:** Dataclass with 100+ fields. Each effect has intensity 0–10.
 - **vary_params_for_frame:** Scales intensities by event cycle (subtle → peak at frame 6 → decay)
-- **prev_frame:** Used by ghost_trail, slit_scan, echo_crown, frame_drop (temporal effects)
+- **prev_frame:** Used by ghost_trail, slit_scan, echo_crown, temporal_echo, frame_drop (temporal effects)
+- **GLSL shaders:** Auto-discovered from `shader_*_intensity` fields; loaded from SHADERS/*.frag
 
 ---
 
@@ -99,12 +110,13 @@ process_frame(frame, mask, params, frame_idx, prev_frame)
 class GlitchParams:
     rgb_shift_intensity: int = 0
     chromatic_aberration: int = 0
-    # ... 80+ effect params, all int 0-10 except:
+    # ... 100+ effect params, all int 0-10 except:
     chaos_level: float = 0.0
     color_scheme: str = "default"
     mask_sensitivity: float = 0.0
     mask_soft_edge: int = 0
     mask_opacity: float = 1.0
+    # shader_*_intensity: kaleido_grid, stripe_shift, block_smear, palette_rainbow, dot_matrix, etc.
     # Transition effects: transition_band_wipe, transition_diagonal_rip, etc.
 ```
 
@@ -121,21 +133,37 @@ params = GlitchParams(**{k: v for k, v in saved[name].items() if k in GlitchPara
 - **255** = protected (subject, no glitch)
 - **0** = glitch zone (effects apply)
 - `bypass_mask=True` → mask = zeros (effects everywhere)
-- `create_auto_mask()` → edge detection, returns binary mask
+- `mask_path` = custom uploaded mask (GIF maker + overlay tabs)
+- `create_auto_mask()` → edge detection, returns binary mask (used when no mask_path)
 
 ---
 
-## 4. Effect Categories (glitch_processor.py)
+## 4. Effect Categories
+
+### CPU Effects (glitch_processor.py)
 
 | Category | Effects |
 |----------|---------|
 | **Core** | rgb_shift, chromatic_aberration, scanlines, noise, pixelation, datamosh, melting |
-| **Spatial** | flow_warp, slit_scan, parallax_split, voronoi_shatter |
-| **Temporal** | echo_crown, strobe_phase, frame_drop |
-| **Palette** | palette_cycle, chroma_collapse, ordered_dither |
+| **Spatial** | flow_warp, slit_scan, parallax_split, voronoi_shatter, displacement_map |
+| **Temporal** | echo_crown, strobe_phase, frame_drop, ghost_trail, temporal_echo |
+| **Palette** | palette_cycle, chroma_collapse, ordered_dither, color_halftone |
 | **Occult** | sigil_ring, phylactery_glow, abyss_window |
 | **Mathy** | fft_jitter, moire_grid |
 | **Transitions** | 12 types (band_wipe, diagonal_rip, slit_scan_swap, etc.) |
+
+### GLSL Shaders (SHADERS/*.frag)
+
+| shader_*_intensity | Description |
+|--------------------|-------------|
+| kaleido_grid | Mirror-tiled portal/panel kaleidoscope layout |
+| stripe_shift | Horizontal band displacement with per-band X shift |
+| block_smear | Codec-broken block swap/smear geometry |
+| palette_rainbow | Posterize + luminance-mapped rainbow banding |
+| dot_matrix | LED panel / crisp pixel grid (luminance-driven pulse) |
+| pixel_rain, liquid_metal, data_corruption, vhs_rewind, holographic_foil | |
+| crystalline_frost, void_tendrils, spectral_prism, soul_fire, electric_arc | |
+| dimensional_rift, glitch_hologram, caustic_flow, thermal_distort, hexagonal_warp, necrotic_iridescent_flow | |
 
 ---
 
@@ -172,11 +200,12 @@ python batch_gif.py -n 100 -o output/batch [--use-mask] [--preset random|traits]
 
 **Tabs:**
 1. **Series Generator** — Generate pair + glitched GIF, batch generator
-2. **Photos → GIF** — Upload 2+ images, apply glitch effects, sidebar has 80+ sliders
+2. **Custom GIF** — Upload 2+ images, optional custom mask (white=protected), apply glitch effects, sidebar has 100+ sliders. Output: GIF + WebP + APNG download.
 3. **Gallery** — Sample images from sample_images/
 4. **GIF Overlay** — Base + mask + GIF → composite with optional chromatic bloom
 5. **CLI & Batch** — Command reference
 
+**Custom GIF:** Resolution selector (256–1024px), Floyd-Steinberg dithering, bypass mask checkbox. Mask upload overrides auto-detect when provided.
 **Preset flow:** Select preset from saved_presets.json → sliders override with preset values → save/delete presets
 
 ---
@@ -185,7 +214,8 @@ python batch_gif.py -n 100 -o output/batch [--use-mask] [--preset random|traits]
 
 - **OpenCV** (cv2) — image load, resize, remap, Canny, etc.
 - **NumPy** — arrays, FFT, random
-- **Pillow** (PIL) — GIF save, quantize, alpha composite
+- **Pillow** (PIL) — GIF/WebP/APNG save, quantize, alpha composite
+- **moderngl** — OpenGL 3.3 context for GLSL shaders
 - **Streamlit** — UI
 - **moviepy** — GIF → MP4 (for download)
 
@@ -203,7 +233,9 @@ python batch_gif.py -n 100 -o output/batch [--use-mask] [--preset random|traits]
 ## 10. Notable Implementation Details
 
 - **Event cycle:** EVENT_CYCLE=12, EVENT_PEAK_FRAME=6 — effects peak at frame 6, decay after
-- **Global palette:** One palette for all GIF frames → no per-frame color shimmer
-- **GIF size:** Target 700KB; reduces colors (256→128→64→32), then frame skip if needed
+- **Global palette:** Random sampling + median cut (method=2) for perceptually pleasing GIF palettes
+- **GIF size:** Target 700KB; smarter frame decimation (drop similar consecutive frames first), then color reduction (256→128→64→32)
 - **Transition pick:** When multiple transition params > 0, `pick_transition()` chooses by weighted random
 - **Auto-mask:** `create_auto_mask()` — background subtraction + edge detection, face_safe option
+- **Shader auto-discovery:** `shader_processor` scans GlitchParams for `shader_*_intensity`, loads matching SHADERS/*.frag
+- **Layer cache:** `_collect_layer_paths()` caches SERIES/ scan to avoid redundant filesystem reads
